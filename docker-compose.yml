@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  app:
+    build: . # 현재 디렉토리의 Dockerfile을 사용하여 이미지를 빌드합니다.
+    ports:
+      - "9007:9007" # 호스트 포트:컨테이너 포트 (애플리케이션 접근용)
+    environment:
+      # application.yml에 설정된 환경 변수 (필요시 추가)
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/myfavoritenetflix?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME} # .env 파일에서 로드
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD} # .env 파일에서 로드
+    depends_on:
+      db:
+        condition: service_healthy # db 서비스가 healthy 상태가 될 때까지 기다립니다.
+    networks:
+      - myfavoritenetflix_network # 동일한 네트워크에 연결
+
+  db:
+    image: mysql:8.0.38 # MySQL 이미지
+    container_name: myfavoritenetflix-sql # 기존에 사용하던 컨테이너 이름
+    ports:
+      - "3310:3306" # 호스트 포트:컨테이너 포트 (외부에서 MySQL 접근용)
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD} # MySQL root 비밀번호
+      MYSQL_DATABASE: myfavoritenetflix # 사용할 데이터베이스 이름
+    volumes:
+      - db_data:/var/lib/mysql # 데이터 영속성을 위한 볼륨
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 10s # 10s 마다 check
+      timeout: 5s # check timeout 5s
+      retries: 5 # 5번 재시도
+    networks:
+      - myfavoritenetflix_network # 동일한 네트워트에 연결
+
+networks:
+  myfavoritenetflix_network: # 사용자 정의 네트워크
+    driver: bridge
+
+volumes:
+  db_data: # db 데이터 볼륨 정의
